@@ -8,6 +8,8 @@ import cv2
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
+MAX_UNDETECTED_FRAMES = 3
+
 class Lane:
     def __init__(self, binary_warped):
         self.binary_warped = binary_warped
@@ -25,8 +27,10 @@ class Lane:
         self.radius_of_curvature = 0.0
         self.detected = False
         self.last_fit = None
-
-
+        self.times_undetected = 0
+        self.last_chosen_x = None
+        self.last_chosen_y = None
+        
     def identify_lane_start(self):
         # start from about 3/4 of the image from top
         y = int(3 / 4 * self.binary_warped.shape[0])
@@ -46,7 +50,7 @@ class Lane:
         raise Exception("Use a child class not the Lane base class")
         None
 
-    def find_window_centers(self):
+    def lookfor_window_centers(self):
         boxes_y = np.arange(0, self.binary_warped.shape[0], self.window_height)[::-1]
         centers = np.zeros_like(boxes_y)
         conv_max = np.zeros_like(boxes_y)
@@ -105,7 +109,7 @@ class Lane:
 
     def get_window_centers(self):
         if self.centers is None:
-            self.find_window_centers()
+            self.lookfor_window_centers()
 
         return self.centers
 
@@ -132,11 +136,15 @@ class Lane:
 
         return (self.chosen_x, self.chosen_y)
 
-    def fit_poly(self):
-        self.choose_window_pixels()
+    def fit_polynomial(self):
         self.current_fit = np.polyfit(self.chosen_y, self.chosen_x, 2)
         self.current_fity = np.arange(0, self.binary_warped.shape[0])
         self.current_fitx = np.polyval(self.current_fit, self.current_fity)
+
+    def find_using_sliding_window(self):
+        self.lookfor_window_centers()
+        self.choose_window_pixels()
+        self.fit_polynomial()
 
         return self.current_fit
 
@@ -151,12 +159,15 @@ class Lane:
         # R curve = ((1 + (2Ay + B) ^ 2) ^ 3/2) / 2A
         self.radius_of_curvature = ((1 + (2 * fit_cr[0] * y_eval_world + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
 
-    def use_polynomial(self):
+    def find_using_polynomial(self):
+        self.last_fit = self.current_fit
+        self.last_chosen_x = self.chosen_x
+        self.last_chosen_y = self.chosen_y
+
         nonzero = self.binary_warped.nonzero()
         nonzeroy = nonzero[0]
         nonzerox = nonzero[1]
 
-        self.last_fit = self.current_fit
         center = np.polyval(self.last_fit, nonzeroy)
 
         margin = self.margin // 2
@@ -165,15 +176,26 @@ class Lane:
         self.chosen_x = nonzerox[lane_inds]
         self.chosen_y = nonzeroy[lane_inds]
 
+        if (len(self.chosen_x) == 0):
+            self.chosen_x = self.last_chosen_x
+            self.chosen_y = self.last_chosen_y
+
+            self.times_undetected += 1
+            if self.times_undetected > MAX_UNDETECTED_FRAMES:
+                print("Finding window centers and fitting polynomial again")
+                self.find_using_sliding_window()
+        else:
+            self.fit_polynomial()
+            
 
     def process_frame(self, binary_warped):
         self.binary_warped = binary_warped
 
         if not self.detected:
-            self.fit_poly()
+            self.find_using_sliding_window()
             self.detected = True
         else:
-            self.use_polynomial()
+            self.find_using_polynomial()
             print('using existing polynomial to find lane lines')
         
         self.calculate_curvature()
@@ -219,7 +241,7 @@ if __name__ == "__main__":
     lane_algo = LaneDetection()
     binary_warped = lane_algo.get_warped_image(img)
     ll = LeftLane(binary_warped)
-    centers = ll.find_window_centers()
+    centers = ll.lookfor_window_centers()
 
     y = np.arange(0, binary_warped.shape[0], ll.window_height)[::-1]
     output_img = np.dstack((binary_warped * 255, binary_warped * 255, binary_warped * 255))

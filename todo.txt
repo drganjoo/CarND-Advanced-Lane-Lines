@@ -1,0 +1,10 @@
+
+
+1) curvature
+2) visual display on the image
+3) smoothing across frames
+4) figuring out if the lanes are good:
+    distance / slope
+    curvature
+    
+5) Use only saturation to figure out yellow lines at least
