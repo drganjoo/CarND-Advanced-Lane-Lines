@@ -5,6 +5,15 @@ Final output video:
 
 [Output Video](project_video-Lanes.mp4)
 
+## My Approach to Solution
+
+- Checked out all of the available color spaces defined by cv2
+- Tried out various gardient and color thresholding on sample images
+- Generated image frames for the project video into a folder and used that to verify color space chosen / gradients being applied
+- Tried different perspective transformations to finally choose one that provides reasonable transformation for straight line images
+- Tested both sliding window and convolution based approaches and settled on convolution at the end. Tried different values for the convolution window but at the end stuck to all ones.
+- Took random 50 frames from the project video and tested finding lane lines on each one of them using window boxes rather than already defined polynomial
+- Took small sequence of images from the project video to check if fitting using the polynomial on successful frames works
 
 Different classes have been defined for finding lane lines.
 
@@ -263,3 +272,10 @@ self.radius_of_curvature = ((1 + (2 * fit_cr[0] * y_eval_world + fit_cr[1])**2)*
 Line #50 of lane_detection.py has the code that processes the new frame and returns an image that has the polygon drawn and curvature / offset written on the image. It uses LeftLane and RightLane classes to find the two lanes and then averages the curvature defined by the two lane objects.
 
 ![lanes]
+
+# Issues and Future Work
+
+- There are portions of the image where the lane lines are little off, they need to be investigated and fixed
+- Doesn't work on challenge videos, one of the biggest reason is that the curvature of the two lane lines are not compared and the one that seems to be off should be rejected
+- The overall window boxes that are used from bottom to top, are influenced by shadows, e.g. from the bottom it starts going right but as it approaches to the top the sliding boxes have moved to the left due to shadows.
+- From looking at the images as well as color spaces, the yellow line is very visible. Would like to explore some kind of weightage being given to lane that is identified using the very visible yellow line.
