@@ -149,7 +149,7 @@ A sample of the color space is:
 
 #### Color Thresholding
 
-Color thresholding is done on **S channel** (line # 74 of edge_detection.py)
+Color thresholding is done on **B channel** (line # 74 of edge_detection.py)
 
 #### Gradient Thresholding
 

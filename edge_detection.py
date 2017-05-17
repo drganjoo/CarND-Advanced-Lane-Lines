@@ -72,11 +72,11 @@ class EdgeDetection:
         return dir_binary
 
     def get_color_thresh_img(self):
-        color_thresh = (170,255)
+        color_thresh = (140,255)
         
-        mask = (self.s >= color_thresh[0]) & (self.s <= color_thresh[1])
-        #mask = (self.b >= color_thresh[0]) & (self.b <= color_thresh[1])
-        binary = np.zeros_like(self.s)
+        #mask = (self.s >= color_thresh[0]) & (self.s <= color_thresh[1])
+        mask = (self.b >= color_thresh[0]) & (self.b <= color_thresh[1])
+        binary = np.zeros_like(self.b)
         binary[mask] = 1
         return binary
 
