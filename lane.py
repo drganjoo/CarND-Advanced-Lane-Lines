@@ -156,7 +156,13 @@ class Lane:
         xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
         # Fit new polynomials to x,y in world space
-        fit_cr = np.polyfit(self.chosen_y * ym_per_pix, self.chosen_x * xm_per_pix, 2)
+        #fit_cr2 = np.polyfit(self.chosen_y * ym_per_pix, self.chosen_x * xm_per_pix, 2)
+        
+        fit_cr = np.polyfit(self.current_fity * ym_per_pix, self.current_fitx * xm_per_pix, 2)
+        #print("Lane.py")
+        #print(fit_cr2, self.chosen_y.shape)
+        #print(fit_cr, self.current_fity.shape)
+
         y_eval_world = 719 * ym_per_pix
 
         # R curve = ((1 + (2Ay + B) ^ 2) ^ 3/2) / 2A

@@ -116,11 +116,13 @@ class LaneDetection:
         center = (self.left_lane.current_fitx[-1] + self.right_lane.current_fitx[-1]) / 2
         self.offset = (640 - center) * 3.7/700 # meters per pixel in x dimension
         self.radius_of_curvature = (self.left_lane.radius_of_curvature + self.right_lane.radius_of_curvature) / 2
+        #self.radius_of_curvature = self.left_lane.radius_of_curvature
 
         if np.abs(self.last_radius) > 1:
-            alpha = 0.4
+            alpha = 0.3
             self.radius_of_curvature = alpha * self.radius_of_curvature + (1-alpha) * self.last_radius
-            self.last_radius = self.radius_of_curvature
+
+        self.last_radius = self.radius_of_curvature
 
     def find_bottom_left_right(self, binary_warped):
         self.left_lane.set_binary_warped(binary_warped)
@@ -133,18 +135,8 @@ if __name__ == "__main__":
     import glob
     import os
 
-    filenames = [filename for filename in glob.glob('./project_video-frames/*.jpg')
-                 if -1 == filename.find('proc')]
-
+    images = ['./project_video-frames/{:04d}.jpg'.format(i) for i in range(2)]
     lane_algo = LaneDetection()
-
-    def load_image(filename):
-        img = cv2.imread(filename)
-        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        
-    for i in range(2):
-        filename = filenames[i]
-        img = load_image(filename)
-        
+    for filename in images:
+        img = mpimg.imread(filename)
         final_img = lane_algo.process_image(img)
-        undistort_img = lane_algo.undistort_img
