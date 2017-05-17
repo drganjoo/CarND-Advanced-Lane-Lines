@@ -1,6 +1,11 @@
 # Advanced Lane Finding
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
+Final output video:
+
+[Output Video](project_video-Lanes.mp4)
+
+
 Different classes have been defined for finding lane lines.
 
 - CameraCalibration (camera_calibration.py)
@@ -30,6 +35,11 @@ In order to demonstrate different functionality of the solution, jupyter noteboo
 [perspective]: ./output_images/perspective.png "Straight Perspective"
 [perspective_explain]: ./output_images/perspective_explain.png "Perspective Explain"
 [perspective_sample]: ./output_images/perspective_sample.png "Perspective Sample"
+[lane_start]: ./output_images/lane_start.png "Lane Start"
+[windows]: ./output_images/windows.png "Windows"
+[pixels]: ./output_images/pixels.png "pixels"
+[polynomial]: ./output_images/polynomial.png "polynomial"
+[lanes]: ./output_images/lanes.png "lanes"
 
 ## Pipeline Summary
 
@@ -174,3 +184,82 @@ Sample output on straight_line1.jpg:
 Output on an actual frame:
 
 ![perspective_sample]
+
+# Finding Lane Lines
+
+A class Lane has been defined in lane.py that handles all lane identification
+
+## Finding Lane Start
+
+Bottom 3/4th of the height of the image is used to sum up all pixels across X and then find the region that has the most number of pixels.
+
+Line #38 of lane.py has **identify_lane_start()**:
+```
+y = int(3 / 4 * self.binary_warped.shape[0])
+bottom_img = self.get_bottom_image(y)
+sum_cols = np.sum(image_area, axis=0)
+conv = np.convolve(self.window_for_conv, sum_cols, 'same')
+center = np.argmax(conv)
+```
+![lane_start]
+
+## Sliding Window
+
+Line #57 of lane.py **lookfor_window_centers**:
+
+Window Size:  50,80
+
+Y offsets of all windows, with the 0th one being the bottom most, are defined using:
+
+```
+boxes_y = np.arange(0, self.binary_warped.shape[0], self.window_height)[::-1]
+```
+Then wihtin a margin of 100px from the last window's center a region is defined, convolved with an array containing all ones and having a size of 50px. New window is chosen based on the maximum convolution within the 100px margin.
+
+![windows]
+
+## Choosing Pixels
+
+All pixels that lie within the sliding windows are chosen. Line # 118 (lane.py)
+
+![pixels]
+
+## Fitting a poynomial
+
+A polynomial is fit for all pixels that have been chosen and then it is evaluated for 0 to image height. Line # 142 (lane.py)
+
+![polynomial]
+
+## Find Using Polynomial
+
+The class "Lane" defines two methods, **find_using_sliding_windows** (Line #146 lane.py) that uses sliding algorithm to find windows and then fits a new polynomial to it and the other one **find_using_polynomial** (Line #166 Lane.py) that uses an existing polynomial to choose pixels that lie within 50px of the already defined polynomial and then fits a new one using the newly chosen pixels.
+
+## Smoothing
+
+A low pass filter is used to smooth polynomials from one frame to another (line # 200 lane.py):
+
+```
+current_fit = current_fit * A + last_fit * (1 - A)
+```
+
+## Finding Curvature
+
+Line # 154 of lane.py defines method to calculate the radius of curvature for the lane lines. The following formula is being used:
+
+```
+ym_per_pix = 30/720 # meters per pixel in y dimension
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+# Fit new polynomials to x,y in world space
+fit_cr = np.polyfit(self.chosen_y * ym_per_pix, self.chosen_x * xm_per_pix, 2)
+y_eval_world = 719 * ym_per_pix
+
+# R curve = ((1 + (2Ay + B) ^ 2) ^ 3/2) / 2A
+self.radius_of_curvature = ((1 + (2 * fit_cr[0] * y_eval_world + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+```
+
+## Drawing Lane Polygon
+
+Line #50 of lane_detection.py has the code that processes the new frame and returns an image that has the polygon drawn and curvature / offset written on the image. It uses LeftLane and RightLane classes to find the two lanes and then averages the curvature defined by the two lane objects.
+
+![lanes]

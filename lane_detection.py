@@ -17,6 +17,7 @@ class LaneDetection:
         self.left_lane = LeftLane()
         self.right_lane = RightLane()
         self.radius_of_curvature = 0.0
+        self.last_radius = 0.0
         
         # for perspective transformation
         top_y = 457
@@ -115,6 +116,11 @@ class LaneDetection:
         center = (self.left_lane.current_fitx[-1] + self.right_lane.current_fitx[-1]) / 2
         self.offset = (640 - center) * 3.7/700 # meters per pixel in x dimension
         self.radius_of_curvature = (self.left_lane.radius_of_curvature + self.right_lane.radius_of_curvature) / 2
+
+        if np.abs(self.last_radius) > 1:
+            alpha = 0.4
+            self.radius_of_curvature = alpha * self.radius_of_curvature + (1-alpha) * self.last_radius
+            self.last_radius = self.radius_of_curvature
 
     def find_bottom_left_right(self, binary_warped):
         self.left_lane.set_binary_warped(binary_warped)

@@ -72,9 +72,7 @@ class Lane:
             rb = margin_rx, y + self.window_height
 
             image_area = self.binary_warped[y: y + self.window_height, margin_lx : margin_rx]
-
-            a, b = self.find_conv_max(image_area)
-            conv_max[i], conv = a, b
+            conv_max[i], conv = self.find_conv_max(image_area)
             
             # it could be that there are no pixles in the given window at all
             if conv[conv_max[i]] == 0:
