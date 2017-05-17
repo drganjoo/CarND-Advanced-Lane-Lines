@@ -17,17 +17,17 @@ Final output video:
 
 Different classes have been defined for finding lane lines.
 
-- CameraCalibration (camera_calibration.py)
-- EdgeDetection (edge_detection.py)
-- Lane (Base class) (lane.py)
-- LeftLane (Child class) (lane.py)
-- RightLane(Child class) (lane.py)
-- LaneDetection (lane_detection.py)
+- [CameraCalibration](camera_calibration.py)
+- [EdgeDetection](edge_detection.py)
+- [Lane (Base class)](lane.py)
+- [LeftLane (Child class)](lane.py)
+- [RightLane(Child class)](lane.py)
+- [LaneDetection](lane_detection.py)
 
 In order to demonstrate different functionality of the solution, jupyter notebooks have also been used:
 
-- ImageToBinaryWarped - this notebook shows the process from test image to binary_warped image
-- LaneMarkingTest - this notebook shows the process from binary_warped to lane line identification
+- [ImageToBinaryWarped](ImageToBinaryWarped.ipynb) - this notebook shows the process from test image to binary_warped image
+- [LaneMarkingTest](LaneMarkingTest.ipynb) - this notebook shows the process from binary_warped to lane line identification
 
 
 [distort_example]: ./output_images/distortion_correction.png "Distortion Correction"
