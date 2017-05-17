@@ -279,3 +279,4 @@ Line #50 of lane_detection.py has the code that processes the new frame and retu
 - Doesn't work on challenge videos, one of the biggest reason is that the curvature of the two lane lines are not compared and the one that seems to be off should be rejected
 - The overall window boxes that are used from bottom to top, are influenced by shadows, e.g. from the bottom it starts going right but as it approaches to the top the sliding boxes have moved to the left due to shadows.
 - From looking at the images as well as color spaces, the yellow line is very visible. Would like to explore some kind of weightage being given to lane that is identified using the very visible yellow line.
+- Not happy with the curvature calculation. Would have liked it to be much smoother from one frame to the other.
