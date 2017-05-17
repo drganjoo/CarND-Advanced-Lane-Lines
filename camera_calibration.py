@@ -4,7 +4,6 @@ import glob
 import os
 import matplotlib.pyplot as plt
 import pickle
-import matplotlib.image as mpimg
 
     
 class CameraCalibration:
@@ -15,17 +14,6 @@ class CameraCalibration:
         self.dist = None
 
 
-    def show_chessboard(self, image_name):
-        test_image = cv2.imread(image_name)
-        test_image_gray = cv2.cvtColor(test_image, cv2.COLOR_BGR2GRAY)
-
-        ret, corners = cv2.findChessboardCorners(test_image, (nx, ny), None)
-        cv2.drawChessboardCorners(test_image_gray, (nx,ny), corners, ret)
-        
-        plt.imshow(test_image_gray, cmap='gray')
-        plt.show()
-        
-        
     def get_obj_img_points(self, pattern):
         images = glob.glob(pattern)
 
@@ -58,9 +46,8 @@ class CameraCalibration:
         
         # figure out the image size
         images = glob.glob(image_files)
-        image = mpimg.imread(images[0])
+        image = cv2.imread(images[0])
         img_size = image.shape[:2]
-        print(img_size)
         
         ret, self.mtx, self.dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, img_size, None, None)
         if ret:
@@ -70,12 +57,26 @@ class CameraCalibration:
         else:
             print("Could not calibrate camera using the given parameters")
     
+    def show_chessboard(self, image_name):
+        test_image = cv2.imread(image_name)
+        test_image_gray = cv2.cvtColor(test_image, cv2.COLOR_BGR2GRAY)
+
+        ret, corners = cv2.findChessboardCorners(test_image, (self.nx, self.ny), None)
+        cv2.drawChessboardCorners(test_image_gray, (self.nx, self.ny), corners, ret)
+        
+        plt.imshow(test_image_gray, cmap='gray')
+        plt.show()
+        
+
     def load_calibration(self, from_file = './camera_calib.p'):
-        with open(from_file, "rb") as f:
-            data = pickle.load(f)
-            self.mtx = data['mtx']
-            self.dist = data['dist']
-            
+        if os.path.exists(from_file):
+            with open(from_file, "rb") as f:
+                data = pickle.load(f)
+                self.mtx = data['mtx']
+                self.dist = data['dist']
+        else:
+            self.calibrate_using_images()
+                
     def undistort(self, img, useOptimal = False):
         if useOptimal:
             h,  w = img.shape[:2]

@@ -9,9 +9,10 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
 MAX_UNDETECTED_FRAMES = 3
+LOW_PASS_FILTER_A = 0.7
 
 class Lane:
-    def __init__(self, binary_warped):
+    def __init__(self, binary_warped = None):
         self.binary_warped = binary_warped
         self.window_width = 50 
         self.window_height = 80
@@ -31,6 +32,9 @@ class Lane:
         self.last_chosen_x = None
         self.last_chosen_y = None
         
+    def set_binary_warped(self, binary_warped):
+        self.binary_warped = binary_warped
+
     def identify_lane_start(self):
         # start from about 3/4 of the image from top
         y = int(3 / 4 * self.binary_warped.shape[0])
@@ -54,7 +58,6 @@ class Lane:
         boxes_y = np.arange(0, self.binary_warped.shape[0], self.window_height)[::-1]
         centers = np.zeros_like(boxes_y)
         conv_max = np.zeros_like(boxes_y)
-        conv = np.zeros((len(boxes_y), self.margin))
 
         # set first center to the last one as the loop uses last center
         centers[-1] = self.identify_lane_start()
@@ -69,40 +72,41 @@ class Lane:
             rb = margin_rx, y + self.window_height
 
             image_area = self.binary_warped[y: y + self.window_height, margin_lx : margin_rx]
-            conv_max[i], conv[i] = self.find_conv_max(image_area)
+
+            a, b = self.find_conv_max(image_area)
+            conv_max[i], conv = a, b
             
             # it could be that there are no pixles in the given window at all
-            if conv[i,conv_max[i]] == 0:
+            if conv[conv_max[i]] == 0:
                 centers[i] = centers[i - 1]
                 conv_max[i] = conv_max[i - 1]
-                conv[i] = conv[i-1]
             else:
                 centers[i] = conv_max[i] + margin_lx
 
-                # how many pixels were there in this box compared to the previous one
-                # if not many then don't believe so much on this box
+            # how many pixels were there in this box compared to the previous one
+            # if not many then don't believe so much on this box
 
-            if i > 0:
-                filled_previous = np.sum(conv[i - 1]) + 1e-4
-                filled_area = np.sum(conv[i])
-                filled_area_ratio = abs(filled_area / filled_previous)
+            # if i > 0:
+            #     filled_previous = np.sum(conv[i - 1]) + 1e-4
+            #     filled_area = np.sum(conv[i])
+            #     filled_area_ratio = abs(filled_area / filled_previous)
 
-                if filled_area_ratio < 0.3:
-                    center_diff = (centers[i] - centers[i-1]) / self.window_width
-                    print('Filled in area is less than the last. Diff Ratio', center_diff)
+            #     if filled_area_ratio < 0.3:
+            #         center_diff = (centers[i] - centers[i-1]) / self.window_width
+            #         print('Filled in area is less than the last. Diff Ratio', center_diff)
 
-                    # a maximum of 30% change in center is allowed in case
-                    # not many pixels are found in this window
+            #         # a maximum of 30% change in center is allowed in case
+            #         # not many pixels are found in this window
                     
-                    if abs(center_diff) > 0.3:
-                        if centers[i] < centers[i-1]:
-                            centers[i] = centers[i-1] * 0.7
-                        else:
-                            centers[i] = centers[i-1] * 1.3
+            #         if abs(center_diff) > 0.3:
+            #             if centers[i] < centers[i-1]:
+            #                 centers[i] = centers[i-1] * 0.7
+            #             else:
+            #                 centers[i] = centers[i-1] * 1.3
 
-                    # carry forward 80% weight of the previous conv_max as we go up we don't want
-                    # one or two pixels in this window to allow another small ratio of pixels to be impacted
-                    conv[i] = conv[i-1] * 0.8
+            #         # carry forward 80% weight of the previous conv_max as we go up we don't want
+            #         # one or two pixels in this window to allow another small ratio of pixels to be impacted
+            #         conv[i] = conv[i-1] * 0.8
 
         self.centers = centers
         return centers
@@ -117,11 +121,8 @@ class Lane:
         self.chosen_y = []
         self.chosen_x = []
 
-        windows = self.get_windows_from_centers()
-        for window in windows:
-            lt = window[0]
-            rb = window[1]
-
+        windows = self.get_windows_x_y()
+        for (lt, rb) in windows:
             # area of the image wihtin this window
             image_area = self.binary_warped[lt[1]:rb[1], lt[0]:rb[0]]
             nonzero = image_area.nonzero()
@@ -136,15 +137,19 @@ class Lane:
 
         return (self.chosen_x, self.chosen_y)
 
-    def fit_polynomial(self):
-        self.current_fit = np.polyfit(self.chosen_y, self.chosen_x, 2)
+    def set_polynomial_x_y(self):
         self.current_fity = np.arange(0, self.binary_warped.shape[0])
         self.current_fitx = np.polyval(self.current_fit, self.current_fity)
+
+    def fit_polynomial(self):
+        self.current_fit = np.polyfit(self.chosen_y, self.chosen_x, 2)
+        self.set_polynomial_x_y()
 
     def find_using_sliding_window(self):
         self.lookfor_window_centers()
         self.choose_window_pixels()
         self.fit_polynomial()
+        self.times_undetected = 0
 
         return self.current_fit
 
@@ -158,6 +163,7 @@ class Lane:
 
         # R curve = ((1 + (2Ay + B) ^ 2) ^ 3/2) / 2A
         self.radius_of_curvature = ((1 + (2 * fit_cr[0] * y_eval_world + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+        return self.radius_of_curvature
 
     def find_using_polynomial(self):
         self.last_fit = self.current_fit
@@ -176,6 +182,11 @@ class Lane:
         self.chosen_x = nonzerox[lane_inds]
         self.chosen_y = nonzeroy[lane_inds]
 
+        # in case we don't find any pixels within the range of the polynomial,
+        # lets use the last lane line itself, but keep track of the number of times
+        # this happes consecutively. If it happens more than e.g. 3 then we will
+        # do a window search rather than polynomial search
+
         if (len(self.chosen_x) == 0):
             self.chosen_x = self.last_chosen_x
             self.chosen_y = self.last_chosen_y
@@ -188,6 +199,11 @@ class Lane:
             self.fit_polynomial()
             
 
+    def smooth(self):
+        # use a low pass filter
+        self.current_fit = self.current_fit * LOW_PASS_FILTER_A + self.last_fit * (1 - LOW_PASS_FILTER_A)
+        self.set_polynomial_x_y()
+
     def process_frame(self, binary_warped):
         self.binary_warped = binary_warped
 
@@ -196,11 +212,12 @@ class Lane:
             self.detected = True
         else:
             self.find_using_polynomial()
-            print('using existing polynomial to find lane lines')
+            #print('using existing polynomial to find lane lines')
+            self.smooth()
         
         self.calculate_curvature()
 
-    def get_windows_from_centers(self):
+    def get_windows_x_y(self):
         # window y locations's in reverse order (from bottom to up)
         y = np.arange(0, self.binary_warped.shape[0], self.window_height)[::-1]
         centers = self.get_window_centers()
@@ -216,7 +233,7 @@ class Lane:
             
         
 class LeftLane(Lane):
-    def __init__(self, binary_warped):
+    def __init__(self, binary_warped = None):
         super().__init__(binary_warped)
 
     def get_bottom_image(self, y):
@@ -224,34 +241,21 @@ class LeftLane(Lane):
         return self.binary_warped[y:,:mid_point]
 
 class RightLane(Lane):
-    def __init__(self, binary_warped):
+    def __init__(self, binary_warped = None):
         super().__init__(binary_warped)
-        self.mid_point = self.binary_warped.shape[0] // 2
-        self.start_x = self.mid_point
 
     def get_bottom_image(self, y):
+        self.mid_point = self.binary_warped.shape[1] // 2
+        self.start_x = self.mid_point
         return self.binary_warped[y:,self.mid_point:]
 
 if __name__ == "__main__":
     from lane_detection import LaneDetection
 
-    filename = './test_images/straight_lines2.jpg'
-    img = mpimg.imread(filename)
+    testfile = './project_video-frames/1246.jpg'
+    img = mpimg.imread(testfile)
 
     lane_algo = LaneDetection()
     binary_warped = lane_algo.get_warped_image(img)
-    ll = LeftLane(binary_warped)
-    centers = ll.lookfor_window_centers()
-
-    y = np.arange(0, binary_warped.shape[0], ll.window_height)[::-1]
-    output_img = np.dstack((binary_warped * 255, binary_warped * 255, binary_warped * 255))
-
-    for i, center in enumerate(centers):
-        lt = center - ll.window_width // 2, y[i]
-        rb = center + ll.window_width // 2, y[i] + ll.window_height
-        print(center, lt, rb)
-
-        cv2.rectangle(output_img, lt, rb, (255, 0, 0), 10)
-        
-    plt.imshow(output_img)
-    plt.show()
+    rl = RightLane(binary_warped)
+    r_centers = rl.get_windows_x_y()

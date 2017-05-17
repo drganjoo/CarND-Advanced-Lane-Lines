@@ -1,6 +1,7 @@
 import matplotlib.patches as patches
 import numpy as np
 import cv2
+import matplotlib.image as mpimg
 from camera_calibration import CameraCalibration
 from edge_detection import EdgeDetection
 from lane import LeftLane, RightLane
@@ -10,11 +11,11 @@ class LaneDetection:
     def __init__(self):
         self.camera = CameraCalibration()
         self.camera.load_calibration()
+        self.binary_img = None
+        self.undistort_img = None
         self.binary_warped = None
-        self.window_width = 50 
-        self.window_height = 80
-        self.left_lane = None
-        self.right_lane = None
+        self.left_lane = LeftLane()
+        self.right_lane = RightLane()
         self.radius_of_curvature = 0.0
         
         # for perspective transformation
@@ -44,6 +45,25 @@ class LaneDetection:
             [tl_x, bot_y]
         ])
 
+
+    def process_image(self, img):
+        # make sure that alpha channel is not being passed to us
+        if img.shape[2] > 3:
+            img = img[:,:,:3]
+
+        self.get_warped_image(img)
+        self.process_left_right(self.binary_warped)
+        self.set_curvature_offset()
+
+        img_with_lanes = self.draw_lanes()
+        img_with_lanes = self.write_curvature_offset(img_with_lanes)
+
+        return img_with_lanes
+
+    def process_left_right(self, binary_warped):
+        self.left_lane.process_frame(binary_warped)
+        self.right_lane.process_frame(binary_warped)
+
     def undistort(self, img):
         self.undistort_img = self.camera.undistort(img)
         return self.undistort_img
@@ -52,13 +72,13 @@ class LaneDetection:
         self.undistort(img)
 
         edge_algo = EdgeDetection(self.undistort_img)
-        binary_img = edge_algo.process_image()
+        self.binary_img = edge_algo.process_image()
         
         # get image size (width, height)
         img_size = self.undistort_img.shape[:2][::-1]
 
         M = cv2.getPerspectiveTransform(self.src, self.dst)
-        self.binary_warped = cv2.warpPerspective(binary_img, M, img_size, flags = cv2.INTER_LINEAR)
+        self.binary_warped = cv2.warpPerspective(self.binary_img, M, img_size, flags = cv2.INTER_LINEAR)
         return self.binary_warped
 
     def get_unwarped_img(self, binary_warped):
@@ -86,7 +106,7 @@ class LaneDetection:
     def write_curvature_offset(self, img):
         str = "Radius of Curvature: {} m".format(np.int(self.radius_of_curvature))
         cv2.putText(img, str, (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255))
-        str = "Lane Offset: {} m".format(np.int(self.offset))
+        str = "Lane Offset: {:.3f} m".format(self.offset)
         cv2.putText(img, str, (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255))
         
         return img
@@ -96,24 +116,29 @@ class LaneDetection:
         self.offset = (640 - center) * 3.7/700 # meters per pixel in x dimension
         self.radius_of_curvature = (self.left_lane.radius_of_curvature + self.right_lane.radius_of_curvature) / 2
 
-    def process_image(self, img):
-        self.get_warped_image(img)
-        if self.left_lane is None:
-            self.left_lane = LeftLane(self.binary_warped)
-        if self.right_lane is None:
-            self.right_lane = RightLane(self.binary_warped)
+    def find_bottom_left_right(self, binary_warped):
+        self.left_lane.set_binary_warped(binary_warped)
+        self.right_lane.set_binary_warped(binary_warped)
 
-        self.left_lane.process_frame(self.binary_warped)
-        self.right_lane.process_frame(self.binary_warped)
-        self.set_curvature_offset()
+        return self.left_lane.identify_lane_start(), self.right_lane.identify_lane_start()
 
-        img_with_lanes = self.draw_lanes()
-        img_with_lanes = self.write_curvature_offset(img_with_lanes)
 
-        return img_with_lanes
+if __name__ == "__main__":
+    import glob
+    import os
 
-    def find_bottom_left_right(self):
-        ll = LeftLane(self.binary_warped)
-        rr = RightLane(self.binary_warped)
+    filenames = [filename for filename in glob.glob('./project_video-frames/*.jpg')
+                 if -1 == filename.find('proc')]
 
-        return ll.identify_lane_start(), rr.identify_lane_start()
+    lane_algo = LaneDetection()
+
+    def load_image(filename):
+        img = cv2.imread(filename)
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+    for i in range(2):
+        filename = filenames[i]
+        img = load_image(filename)
+        
+        final_img = lane_algo.process_image(img)
+        undistort_img = lane_algo.undistort_img
