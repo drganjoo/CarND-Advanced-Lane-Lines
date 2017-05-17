@@ -12,8 +12,8 @@ Final output video:
 - Generated image frames for the project video into a folder and used that to verify color space chosen / gradients being applied
 - Tried different perspective transformations to finally choose one that provides reasonable transformation for straight line images
 - Tested both sliding window and convolution based approaches and settled on convolution at the end. Tried different values for the convolution window but at the end stuck to all ones.
-- Took random 50 frames from the project video and tested finding lane lines on each one of them using window boxes rather than already defined polynomial
-- Took small sequence of images from the project video to check if fitting using the polynomial on successful frames works
+- Took random 50 frames from the project video and tested finding lane lines on each one of them using window boxes rather than already defined polynomial. I did this to ensure that if polynomial based approach fails on consecutive frames, at least looking for lanes using sliding window works.
+- Took small sequence of images from the project video to check if fitting using the polynomial on successful frames works.
 
 Different classes have been defined for finding lane lines.
 
